@@ -1,0 +1,58 @@
+{
+	"name": "pl_dailydata_load_with_alerts",
+	"properties": {
+		"activities": [
+			{
+				"name": "DailyDataLoad",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "pl_SQLtoAzure_Incremental_Json",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "Call Logic App",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "DailyDataLoad",
+						"dependencyConditions": [
+							"Succeeded",
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"url": {
+						"value": "https://prod-05.northcentralus.logic.azure.com:443/workflows/d973a2886b764f6bae05208132ca2941/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=qOXtXw8jlLsb0sL8gWcR2z5MqvjbDI-WhX81gvQ9daM",
+						"type": "Expression"
+					},
+					"body": {
+						"value": "{\n    \"pipeline_name\": \"@{pipeline().Pipeline}\",\n    \"run_id\": \"@{pipeline().RunId}\",\n    \"status\": \"@{activity('DailyDataLoad').Status}\",\n    \"error\": \"@{if(equals(activity('DailyDataLoad').Status,'Failed'),string(activity('DailyDataLoad').error),'No Error')}\"\n}",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2026-06-21T10:19:33Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

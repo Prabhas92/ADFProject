@@ -1,0 +1,15 @@
+{
+	"name": "datafactoryadfproproject",
+	"properties": {
+		"trustModeClaimForMi": {
+			"value": "Disabled",
+			"editable": true
+		}
+	},
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "a6f5b131-212d-427a-aa08-1261df184610",
+		"tenantId": "1aabd055-7c04-47e9-b334-af9d6f2a5f39"
+	}
+}

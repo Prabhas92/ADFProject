@@ -1,0 +1,7 @@
+{
+	"name": "IROnPremise",
+	"properties": {
+		"type": "SelfHosted",
+		"description": "This host my files in my local"
+	}
+}

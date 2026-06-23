@@ -1,0 +1,21 @@
+{
+	"name": "ds_lastload_json",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_blob_access json_files",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "Json",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"fileName": "lastload.json",
+				"folderPath": "Monitor/LastLoad",
+				"container": "bronze"
+			}
+		},
+		"schema": {}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

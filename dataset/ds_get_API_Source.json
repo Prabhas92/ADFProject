@@ -1,0 +1,19 @@
+{
+	"name": "ds_get_API_Source",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_rest_API_Connection",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "RestResource",
+		"typeProperties": {
+			"relativeUrl": {
+				"value": "?offset = {@offset}",
+				"type": "Expression"
+			}
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

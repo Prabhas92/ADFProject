@@ -1,0 +1,20 @@
+{
+	"name": "ds_API_Target_JSON",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_blob_access json_files",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "Json",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"folderPath": "PaginationExample",
+				"container": "bronze"
+			}
+		},
+		"schema": {}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

@@ -1,0 +1,21 @@
+{
+	"name": "ds_emptyjson",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_bronze",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "Json",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"fileName": "empty.json",
+				"folderPath": "Monitor/Empty",
+				"fileSystem": "bronze"
+			}
+		},
+		"schema": {}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

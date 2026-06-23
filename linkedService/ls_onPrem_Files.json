@@ -1,0 +1,18 @@
+{
+	"name": "ls_onPrem_Files",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"description": "It is connected to my local system files",
+		"annotations": [],
+		"type": "FileServer",
+		"typeProperties": {
+			"host": "E:\\OnPremiseFiles",
+			"userId": "desktop-139cr3f\\chethan",
+			"encryptedCredential": "eyJDcmVkZW50aWFsSWQiOiJkZWFiMWUyMi0zNzQwLTQ2NDItODRjMy1iMDc4M2QyNTUxNjUiLCJWZXJzaW9uIjoiMi4wIiwiQ2xhc3NUeXBlIjoiTWljcm9zb2Z0LkRhdGFQcm94eS5Db3JlLkludGVyU2VydmljZURhdGFDb250cmFjdC5DcmVkZW50aWFsU1UwNkNZMTQifQ=="
+		},
+		"connectVia": {
+			"referenceName": "IROnPremise",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}
