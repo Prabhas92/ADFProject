@@ -1,0 +1,69 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"value": "datafactoryadfproproject"
+		},
+		"ls_Azure_SQL_Target_password": {
+			"value": ""
+		},
+		"ls_OnPrem_SQL_Server_password": {
+			"value": ""
+		},
+		"ls_blob_access json_files_connectionString": {
+			"value": ""
+		},
+		"ls_bronze_accountKey": {
+			"value": ""
+		},
+		"ls_onPrem_Files_password": {
+			"value": ""
+		},
+		"ls_sqldata_password": {
+			"value": ""
+		},
+		"ls_Azure_SQL_Target_properties_typeProperties_server": {
+			"value": "sqldatabaseserveradfproproject.database.windows.net"
+		},
+		"ls_Azure_SQL_Target_properties_typeProperties_database": {
+			"value": "AzureSQLTarget"
+		},
+		"ls_Azure_SQL_Target_properties_typeProperties_userName": {
+			"value": "chethanadmin"
+		},
+		"ls_OnPrem_SQL_Server_properties_typeProperties_server": {
+			"value": "localhost"
+		},
+		"ls_OnPrem_SQL_Server_properties_typeProperties_database": {
+			"value": "OnPremSQL"
+		},
+		"ls_OnPrem_SQL_Server_properties_typeProperties_userName": {
+			"value": "DESKTOP-139CR3R\\CHETHAN"
+		},
+		"ls_bronze_properties_typeProperties_url": {
+			"value": "https://saadfprojrct.dfs.core.windows.net/"
+		},
+		"ls_githubAPI_source_properties_typeProperties_url": {
+			"value": "https://raw.githubusercontent.com/"
+		},
+		"ls_onPrem_Files_properties_typeProperties_host": {
+			"value": "E:\\OnPremiseFiles"
+		},
+		"ls_onPrem_Files_properties_typeProperties_userId": {
+			"value": "desktop-139cr3f\\chethan"
+		},
+		"ls_rest_API_Connection_properties_typeProperties_url": {
+			"value": "https://pokeapi.co/api/v2/pokemon"
+		},
+		"ls_sqldata_properties_typeProperties_server": {
+			"value": "sqldatabaseserveradfproproject.database.windows.net"
+		},
+		"ls_sqldata_properties_typeProperties_database": {
+			"value": "sqldatabaseadfproproject"
+		},
+		"ls_sqldata_properties_typeProperties_userName": {
+			"value": "chethanadmin"
+		}
+	}
+}
