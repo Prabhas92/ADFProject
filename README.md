@@ -11,13 +11,6 @@ JsonSink with AzureBlobFSWriteSettings
 retry=2, retryIntervalInSeconds=30
 enableStaging=false
 
-Interview points:
-
-ls_githubAPI_source uses HttpServer type (not RestService) — HttpServer is for Copy Activity JSON/CSV sources; RestService is for REST API sources with pagination support
-Anonymous auth because GitHub Raw is public. For private repos, use PAT as Bearer token
-AzureBlobFSWriteSettings = ADLS Gen2 write. AzureBlobStorageWriteSettings = Standard Blob write — different types, easy to confuse
-
-
 # Pipeline 2: pl_OnPremFiles_To_AzureBlobBronze
 What it does: Migrates 3 CSV files in parallel from on-premise Windows file server to ADLS Gen2.
 Flow: ForEachOnPremFiles (parallel) → Copy data1 (inside each iteration)
@@ -29,13 +22,6 @@ Key expressions:
 @dataset().p_fileName_sink          → Passed to sink dataset at runtime
 Source: ds_OnPremSource → ls_onPrem_Files (FileServer, IROnPremise) → E:\OnPremiseFiles{fileName}
 Sink: ds_onPremSink → ls_bronze (ADLS Gen2) → bronze/OnPremDataFiles/{fileName}
-Interview points:
-
-isSequential=false → all 3 files copy simultaneously, total time ≈ single file time
-Both datasets are parameterised — same dataset definition handles all 3 files dynamically — this is the core of metadata-driven design
-quoteAllText=true in sink → all CSV fields wrapped in double quotes
-SHIR is mandatory because the source is a local Windows path — ADF cloud cannot reach it without the runtime bridge
-
 
 # Pipeline 3: pl_SQLtoAzure_Incremental_Json
 What it does: Incremental load from Azure SQL FactBookings table to ADLS Gen2 Parquet using a JSON file as the watermark store.
@@ -56,15 +42,6 @@ Source: ds_emptyjson (reads empty.json — no real data)
 additionalColumns: injects lastload = @activity('LatestLoad').output.firstRow.LatestLoad
 Sink: overwrites lastload.json with the new watermark value
 
-Interview points:
-
-additionalColumns allows injecting expression values as extra columns without them existing in source
-empty.json is the source because the only content we need to write is the injected expression value
-Both Lookups run in parallel (no dependency between them) — maximises efficiency
-Watermark only updates AFTER successful copy — dependency on Copy SQL Data Succeeded — correct order to prevent data loss
-ParquetSink with Snappy is the standard Bronze-to-analytics format for Databricks/Synapse downstream
-
-
 # Pipeline 4: pl_dailydata_load_with_alerts
 What it does: Orchestrator that calls the incremental pipeline and always fires a Logic App alert.
 Flow:
@@ -78,13 +55,6 @@ json{
   "status": "@{activity('DailyDataLoad').Status}",
   "error": "@{if(equals(activity('DailyDataLoad').Status,'Failed'), string(activity('DailyDataLoad').error), 'No Error')}"
 }
-Interview points:
-
-['Succeeded','Failed'] dependency condition = always runs the alert activity
-waitOnCompletion=true = parent waits for child to finish before alerting
-The Logic App URL contains a hardcoded SAS token — in production this should live in Azure Key Vault
-The if() expression is inline JSON — ADF expression language supports full conditional logic inside string bodies
-
 
 # Pipeline 5: pl_onPremSQl_To_AzureSQL_Incremental_WatermarkTable
 What it does: Multi-table CDC from On-Prem SQL to Azure SQL with watermark table, IfCondition guard, and stored procedure update.
@@ -112,13 +82,6 @@ Copy dynamic SQL:
 )
 Sink: AzureSqlSink — writeBehavior=upsert, useTempDB=true, keys=[id]
 SP_Update_WaterMark: [dbo].[usp_write_watermark] with params last_updated, tableName
-Interview points:
-
-IfCondition prevents empty loads — if no new data, entire branch is skipped
-formatDateTime() is critical — ADF datetime objects must be explicitly formatted for SQL Server compatibility
-Upsert with useTempDB=true: ADF bulk-inserts to temp table → runs MERGE by id → far more efficient than row-by-row
-To add a new table: just add an entry to TableList parameter — no pipeline code change needed
-
 
 # Pipeline 6: pl_onPremSQl_To_AzureSQL_Incremental_WatermarkTable_ScriptActivity
 What it does: Evolution of Pipeline 5. Adds SetVariable for timing, Script activity replacing SP, and dual audit logging (success + failure).
@@ -146,13 +109,6 @@ Key expressions in audit:
 @activity('Copy_FromOnPremSQL_ToAzureSQL').error.message         → Error text
 @variables('PipelineStartTime')                                   → Run start time
 @utcNow()                                                         → End time
-Interview points:
-
-Script Activity vs SP Activity: Script runs inline SQL without pre-creating any DB object — better for CI/CD (target DB may be freshly provisioned)
-state=Inactive = soft-disable without removing the activity — onInactiveMarkAs=Succeeded prevents downstream breakage
-Dual audit trail ensures 100% coverage — both success and failure paths write to PipelineAudit
-PipelineStartTime variable captures real processing start — more accurate than ADF's trigger time
-
 
 # Pipeline 7: pl_paginationExample
 What it does: Ingests all Pokémon from PokéAPI across multiple pages using ADF's native RANGE pagination.
@@ -163,9 +119,3 @@ Copy data1 pagination rule:
 QueryParameters.offset = RANGE:0:@{activity('Get API Data').output.count}:20
 This generates: offset=0, offset=20, offset=40, ..., offset=1300 — one HTTP request per step
 Sink: ds_API_Target_JSON → Azure Blob bronze/PaginationExample/
-Interview points:
-
-ADF supports 3 pagination types: AbsoluteUrl (NextLink), QueryParameters (RANGE/offset), Headers
-RANGE:start:end:step is unique to QueryParameters — perfect for offset-based APIs
-WebActivity is used as a pre-flight to get the count without moving data — then that count drives the pagination bounds
-requestInterval=10ms adds a tiny throttle between requests to avoid rate-limiting the API
