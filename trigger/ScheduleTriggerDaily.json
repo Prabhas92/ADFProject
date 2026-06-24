@@ -1,0 +1,35 @@
+{
+	"name": "ScheduleTriggerDaily",
+	"properties": {
+		"annotations": [],
+		"runtimeState": "Stopped",
+		"pipelines": [
+			{
+				"pipelineReference": {
+					"referenceName": "pl_onPremSQl_To_AzureSQL_Incremental_WatermarkTable",
+					"type": "PipelineReference"
+				},
+				"parameters": {
+					"TableList": []
+				}
+			}
+		],
+		"type": "ScheduleTrigger",
+		"typeProperties": {
+			"recurrence": {
+				"frequency": "Day",
+				"interval": 1,
+				"startTime": "2026-06-24T09:11:00",
+				"timeZone": "India Standard Time",
+				"schedule": {
+					"minutes": [
+						0
+					],
+					"hours": [
+						6
+					]
+				}
+			}
+		}
+	}
+}
