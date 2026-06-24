@@ -64,6 +64,9 @@
 		},
 		"ls_sqldata_properties_typeProperties_userName": {
 			"value": "chethanadmin"
+		},
+		"ScheduleTriggerDaily_properties_pl_onPremSQl_To_AzureSQL_Incremental_WatermarkTable_parameters_TableList": {
+			"value": []
 		}
 	}
 }

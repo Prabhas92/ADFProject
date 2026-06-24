@@ -6,6 +6,10 @@
 			"type": "string",
 			"metadata": "Data Factory name",
 			"defaultValue": "datafactoryadfproproject"
+		},
+		"ScheduleTriggerDaily_properties_pl_onPremSQl_To_AzureSQL_Incremental_WatermarkTable_parameters_TableList": {
+			"type": "array",
+			"defaultValue": []
 		}
 	},
 	"variables": {
@@ -1517,6 +1521,46 @@
 				"[concat(variables('factoryId'), '/datasets/ds_OnPrem_OldLookUp')]",
 				"[concat(variables('factoryId'), '/datasets/ds_OnPrem_NewLookUp')]",
 				"[concat(variables('factoryId'), '/datasets/ds_OnPrem_SQL_Source')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ScheduleTriggerDaily')]",
+			"type": "Microsoft.DataFactory/factories/triggers",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"runtimeState": "Stopped",
+				"pipelines": [
+					{
+						"pipelineReference": {
+							"referenceName": "pl_onPremSQl_To_AzureSQL_Incremental_WatermarkTable",
+							"type": "PipelineReference"
+						},
+						"parameters": {
+							"TableList": "[parameters('ScheduleTriggerDaily_properties_pl_onPremSQl_To_AzureSQL_Incremental_WatermarkTable_parameters_TableList')]"
+						}
+					}
+				],
+				"type": "ScheduleTrigger",
+				"typeProperties": {
+					"recurrence": {
+						"frequency": "Day",
+						"interval": 1,
+						"startTime": "2026-06-24T09:11:00",
+						"timeZone": "India Standard Time",
+						"schedule": {
+							"minutes": [
+								0
+							],
+							"hours": [
+								6
+							]
+						}
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/pl_onPremSQl_To_AzureSQL_Incremental_WatermarkTable')]"
 			]
 		}
 	]
