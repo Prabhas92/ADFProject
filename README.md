@@ -1,4 +1,7 @@
 # ADFProject
+
+# Pipeline Explanations
+
 # Pipeline 1: pl_API_Ingestion
 What it does: Pulls DimAirport.json from GitHub Raw content into ADLS Gen2 Bronze layer.
 Flow: Copy API Data (single Copy Activity)
