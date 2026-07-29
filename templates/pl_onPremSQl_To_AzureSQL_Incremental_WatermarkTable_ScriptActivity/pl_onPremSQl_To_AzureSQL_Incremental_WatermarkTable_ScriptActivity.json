@@ -1,0 +1,718 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name"
+		},
+		"ls_OnPrem_SQL_Server": {
+			"type": "string"
+		},
+		"ls_Azure_SQL_Target": {
+			"type": "string"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/pl_onPremSQl_To_AzureSQL_Incremental_WatermarkTable_ScriptActivity')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "ForEachTableName",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Set Start Time",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@pipeline().parameters.TableList",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "Old_LookUp_Col",
+									"type": "Lookup",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "SqlServerSource",
+											"sqlReaderQuery": {
+												"value": "SELECT WatermarkValue \nFROM watermarktable \nWHERE TableName = '@{item().TableName}';",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"dataset": {
+											"referenceName": "ds_OnPrem_OldLookUp",
+											"type": "DatasetReference"
+										}
+									}
+								},
+								{
+									"name": "New_LookUp_Col",
+									"type": "Lookup",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "SqlServerSource",
+											"sqlReaderQuery": {
+												"value": "SELECT MAX(last_updated) AS NewWatermarkValue \nFROM @{item().TableName}",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"dataset": {
+											"referenceName": "ds_OnPrem_NewLookUp",
+											"type": "DatasetReference"
+										}
+									}
+								},
+								{
+									"name": "If Condition1",
+									"type": "IfCondition",
+									"dependsOn": [
+										{
+											"activity": "Old_LookUp_Col",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										},
+										{
+											"activity": "New_LookUp_Col",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"userProperties": [],
+									"typeProperties": {
+										"expression": {
+											"value": "@greater(\r\n    activity('New_LookUp_Col').output.firstRow.NewWatermarkValue,\r\n    activity('Old_LookUp_Col').output.firstRow.WatermarkValue\r\n)",
+											"type": "Expression"
+										},
+										"ifTrueActivities": [
+											{
+												"name": "Copy_FromOnPremSQL_ToAzureSQL",
+												"type": "Copy",
+												"dependsOn": [],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"source": {
+														"type": "SqlServerSource",
+														"sqlReaderQuery": {
+															"value": "@concat(\n'SELECT * FROM ',\nitem().TableSchemaName,\n'.',\nitem().TableName,\n' WHERE ',\nitem().WaterMark_Column,\n' > ''',\nformatDateTime(activity('Old_LookUp_Col').output.firstRow.WatermarkValue,'yyyy-MM-dd HH:mm:ss'),\n''' AND ',\nitem().WaterMark_Column,\n' <= ''',\nformatDateTime(activity('New_LookUp_Col').output.firstRow.NewWatermarkValue,'yyyy-MM-dd HH:mm:ss'),\n''''\n)",
+															"type": "Expression"
+														},
+														"queryTimeout": "02:00:00",
+														"partitionOption": "None"
+													},
+													"sink": {
+														"type": "AzureSqlSink",
+														"writeBehavior": "upsert",
+														"upsertSettings": {
+															"useTempDB": true,
+															"keys": [
+																"id"
+															]
+														},
+														"sqlWriterUseTableLock": false,
+														"disableMetricsCollection": false
+													},
+													"enableStaging": false,
+													"translator": {
+														"type": "TabularTranslator",
+														"typeConversion": true,
+														"typeConversionSettings": {
+															"allowDataTruncation": true,
+															"treatBooleanAsNumber": false
+														}
+													}
+												},
+												"inputs": [
+													{
+														"referenceName": "ds_OnPrem_SQL_Source",
+														"type": "DatasetReference",
+														"parameters": {
+															"SchemaName": {
+																"value": "@item().TableSchemaName",
+																"type": "Expression"
+															},
+															"TableName": {
+																"value": "@item().TableName",
+																"type": "Expression"
+															}
+														}
+													}
+												],
+												"outputs": [
+													{
+														"referenceName": "ds_Azure_SQL_Target",
+														"type": "DatasetReference",
+														"parameters": {
+															"SchemaName": {
+																"value": "@item().TableSchemaName",
+																"type": "Expression"
+															},
+															"TableName": {
+																"value": "@item().TableName",
+																"type": "Expression"
+															}
+														}
+													}
+												]
+											},
+											{
+												"name": "SP_Update_WaterMark",
+												"type": "SqlServerStoredProcedure",
+												"state": "Inactive",
+												"onInactiveMarkAs": "Succeeded",
+												"dependsOn": [],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"storedProcedureName": "[[dbo].[usp_write_watermark]",
+													"storedProcedureParameters": {
+														"last_updated": {
+															"value": {
+																"value": "@activity('New_LookUp_Col').output.firstRow.NewWatermarkValue",
+																"type": "Expression"
+															},
+															"type": "DateTime"
+														},
+														"tableName": {
+															"value": {
+																"value": "@item().TableName",
+																"type": "Expression"
+															},
+															"type": "String"
+														}
+													}
+												},
+												"linkedServiceName": {
+													"referenceName": "[parameters('ls_OnPrem_SQL_Server')]",
+													"type": "LinkedServiceReference"
+												}
+											},
+											{
+												"name": "UpdateWatermark Using SQL",
+												"type": "Script",
+												"dependsOn": [
+													{
+														"activity": "Copy_FromOnPremSQL_ToAzureSQL",
+														"dependencyConditions": [
+															"Succeeded"
+														]
+													}
+												],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"linkedServiceName": {
+													"referenceName": "[parameters('ls_OnPrem_SQL_Server')]",
+													"type": "LinkedServiceReference"
+												},
+												"typeProperties": {
+													"scripts": [
+														{
+															"parameters": [
+																{
+																	"name": "last_updated",
+																	"type": "Datetime",
+																	"value": {
+																		"value": "@activity('New_LookUp_Col').output.firstRow.NewWatermarkValue",
+																		"type": "Expression"
+																	},
+																	"direction": "Input"
+																},
+																{
+																	"name": "tableName",
+																	"type": "String",
+																	"value": {
+																		"value": "@item().TableName",
+																		"type": "Expression"
+																	},
+																	"direction": "Input"
+																}
+															],
+															"type": "NonQuery",
+															"text": {
+																"value": "UPDATE dbo.watermarktable\nSET WatermarkValue = @last_updated\nWHERE TableName = @tableName;",
+																"type": "Expression"
+															}
+														}
+													],
+													"scriptBlockExecutionTimeout": "02:00:00"
+												}
+											},
+											{
+												"name": "AuditLog",
+												"type": "Script",
+												"dependsOn": [
+													{
+														"activity": "UpdateWatermark Using SQL",
+														"dependencyConditions": [
+															"Succeeded"
+														]
+													}
+												],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"linkedServiceName": {
+													"referenceName": "[parameters('ls_Azure_SQL_Target')]",
+													"type": "LinkedServiceReference"
+												},
+												"typeProperties": {
+													"scripts": [
+														{
+															"parameters": [
+																{
+																	"name": "PipelineName",
+																	"type": "String",
+																	"value": {
+																		"value": "@pipeline().Pipeline",
+																		"type": "Expression"
+																	},
+																	"direction": "Input"
+																},
+																{
+																	"name": "TableName",
+																	"type": "String",
+																	"value": {
+																		"value": "@item().TableName",
+																		"type": "Expression"
+																	},
+																	"direction": "Input"
+																},
+																{
+																	"name": "SourceName",
+																	"type": "String",
+																	"value": "'OnPrem SQL'",
+																	"direction": "Input"
+																},
+																{
+																	"name": "TargetName",
+																	"type": "String",
+																	"value": "'Azure SQL'",
+																	"direction": "Input"
+																},
+																{
+																	"name": "OldWatermark",
+																	"type": "Datetime",
+																	"value": {
+																		"value": "@activity('Old_LookUp_Col').output.firstRow.WatermarkValue",
+																		"type": "Expression"
+																	},
+																	"direction": "Input"
+																},
+																{
+																	"name": "NewWatermark",
+																	"type": "Datetime",
+																	"value": {
+																		"value": "@activity('New_LookUp_Col').output.firstRow.NewWatermarkValue",
+																		"type": "Expression"
+																	},
+																	"direction": "Input"
+																},
+																{
+																	"name": "RowsCopied",
+																	"type": "Int64",
+																	"value": {
+																		"value": "@activity('Copy_FromOnPremSQL_ToAzureSQL').output.rowsCopied",
+																		"type": "Expression"
+																	},
+																	"direction": "Input"
+																},
+																{
+																	"name": "Status",
+																	"type": "String",
+																	"value": "'Success'",
+																	"direction": "Input"
+																},
+																{
+																	"name": "ErrorMessage",
+																	"type": "String",
+																	"value": "''",
+																	"direction": "Input"
+																},
+																{
+																	"name": "StartTime",
+																	"type": "Datetime",
+																	"value": {
+																		"value": "@variables('PipelineStartTime')",
+																		"type": "Expression"
+																	},
+																	"direction": "Input"
+																},
+																{
+																	"name": "EndTime",
+																	"type": "Datetime",
+																	"value": {
+																		"value": "@utcNow()",
+																		"type": "Expression"
+																	},
+																	"direction": "Input"
+																}
+															],
+															"type": "NonQuery",
+															"text": {
+																"value": "INSERT INTO dbo.PipelineAudit\n(\nPipelineName,\nTableName,\nSourceName,\nTargetName,\nWatermarkOld,\nWatermarkNew,\nRowsCopied,\nStatus,\nErrorMessage,\nStartTime,\nEndTime\n)\nVALUES\n(\n@PipelineName,\n@TableName,\n@SourceName,\n@TargetName,\n@OldWatermark,\n@NewWatermark,\n@RowsCopied,\n@Status,\n@ErrorMessage,\n@StartTime,\n@EndTime\n);",
+																"type": "Expression"
+															}
+														}
+													],
+													"scriptBlockExecutionTimeout": "02:00:00"
+												}
+											},
+											{
+												"name": "AuditLog_copy",
+												"type": "Script",
+												"dependsOn": [
+													{
+														"activity": "Copy_FromOnPremSQL_ToAzureSQL",
+														"dependencyConditions": [
+															"Failed"
+														]
+													}
+												],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"linkedServiceName": {
+													"referenceName": "[parameters('ls_Azure_SQL_Target')]",
+													"type": "LinkedServiceReference"
+												},
+												"typeProperties": {
+													"scripts": [
+														{
+															"parameters": [
+																{
+																	"name": "PipelineName",
+																	"type": "String",
+																	"value": {
+																		"value": "@pipeline().Pipeline",
+																		"type": "Expression"
+																	},
+																	"direction": "Input"
+																},
+																{
+																	"name": "TableName",
+																	"type": "String",
+																	"value": {
+																		"value": "@item().TableName",
+																		"type": "Expression"
+																	},
+																	"direction": "Input"
+																},
+																{
+																	"name": "SourceName",
+																	"type": "String",
+																	"value": "'OnPrem SQL'",
+																	"direction": "Input"
+																},
+																{
+																	"name": "TargetName",
+																	"type": "String",
+																	"value": "'Azure SQL'",
+																	"direction": "Input"
+																},
+																{
+																	"name": "OldWatermark",
+																	"type": "Datetime",
+																	"value": {
+																		"value": "@activity('Old_LookUp_Col').output.firstRow.WatermarkValue",
+																		"type": "Expression"
+																	},
+																	"direction": "Input"
+																},
+																{
+																	"name": "NewWatermark",
+																	"type": "Datetime",
+																	"value": {
+																		"value": "@activity('New_LookUp_Col').output.firstRow.NewWatermarkValue",
+																		"type": "Expression"
+																	},
+																	"direction": "Input"
+																},
+																{
+																	"name": "RowsCopied",
+																	"type": "Int64",
+																	"value": "0",
+																	"direction": "Input"
+																},
+																{
+																	"name": "Status",
+																	"type": "String",
+																	"value": "'Failed'",
+																	"direction": "Input"
+																},
+																{
+																	"name": "ErrorMessage",
+																	"type": "String",
+																	"value": {
+																		"value": "@activity('Copy_FromOnPremSQL_ToAzureSQL').error.message",
+																		"type": "Expression"
+																	},
+																	"direction": "Input"
+																},
+																{
+																	"name": "StartTime",
+																	"type": "Datetime",
+																	"value": {
+																		"value": "@variables('PipelineStartTime')",
+																		"type": "Expression"
+																	},
+																	"direction": "Input"
+																},
+																{
+																	"name": "EndTime",
+																	"type": "Datetime",
+																	"value": {
+																		"value": "@utcNow()",
+																		"type": "Expression"
+																	},
+																	"direction": "Input"
+																}
+															],
+															"type": "NonQuery",
+															"text": {
+																"value": "INSERT INTO dbo.PipelineAudit\n(\nPipelineName,\nTableName,\nSourceName,\nTargetName,\nWatermarkOld,\nWatermarkNew,\nRowsCopied,\nStatus,\nErrorMessage,\nStartTime,\nEndTime\n)\nVALUES\n(\n@PipelineName,\n@TableName,\n@SourceName,\n@TargetName,\n@OldWatermark,\n@NewWatermark,\n@RowsCopied,\n@Status,\n@ErrorMessage,\n@StartTime,\n@EndTime\n);",
+																"type": "Expression"
+															}
+														}
+													],
+													"scriptBlockExecutionTimeout": "02:00:00"
+												}
+											}
+										]
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "Set Start Time",
+						"type": "SetVariable",
+						"dependsOn": [],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "PipelineStartTime",
+							"value": {
+								"value": "@utcNow()",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"parameters": {
+					"TableList": {
+						"type": "array",
+						"defaultValue": [
+							{
+								"TableName": "iplteams",
+								"TableSchemaName": "dbo",
+								"WaterMark_Column": "last_updated"
+							},
+							{
+								"TableName": "salesitems",
+								"TableSchemaName": "dbo",
+								"WaterMark_Column": "last_updated"
+							}
+						]
+					}
+				},
+				"variables": {
+					"PipelineStartTime": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-06-22T11:45:51Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/ds_OnPrem_OldLookUp')]",
+				"[concat(variables('factoryId'), '/datasets/ds_OnPrem_NewLookUp')]",
+				"[concat(variables('factoryId'), '/datasets/ds_OnPrem_SQL_Source')]",
+				"[concat(variables('factoryId'), '/datasets/ds_Azure_SQL_Target')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_OnPrem_OldLookUp')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('ls_OnPrem_SQL_Server')]",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": [
+					{
+						"name": "TableName",
+						"type": "varchar"
+					},
+					{
+						"name": "WatermarkValue",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "watermarktable"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_OnPrem_NewLookUp')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('ls_OnPrem_SQL_Server')]",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": [
+					{
+						"name": "TableName",
+						"type": "varchar"
+					},
+					{
+						"name": "WatermarkValue",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "watermarktable"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_OnPrem_SQL_Source')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('ls_OnPrem_SQL_Server')]",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"SchemaName": {
+						"type": "string"
+					},
+					"TableName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": []
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_Azure_SQL_Target')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('ls_Azure_SQL_Target')]",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"SchemaName": {
+						"type": "string"
+					},
+					"TableName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": {
+						"value": "@dataset().SchemaName",
+						"type": "Expression"
+					},
+					"table": {
+						"value": "@dataset().TableName",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": []
+		}
+	]
+}
